@@ -1,5 +1,5 @@
 // Kaartjes service worker: offline app shell + share target
-const VERSION = 'kaartjes-v1';
+const VERSION = 'kaartjes-v3';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 const LIBS = [
   'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js',

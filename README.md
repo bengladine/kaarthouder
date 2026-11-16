@@ -3,9 +3,9 @@
 Statische webapp, geen server nodig. Alle kaarten blijven lokaal op je telefoon (IndexedDB).
 
 ## Online zetten (GitHub Pages)
-1. Nieuwe repo, bv. `kaartjes`, en upload alle bestanden uit deze map.
+1. Nieuwe repo, bv. `kaarthouder`, en upload alle bestanden uit deze map.
 2. Settings → Pages → Branch `main`, map `/ (root)` → Save.
-3. Open `https://<gebruiker>.github.io/kaartjes/` in Chrome op je telefoon.
+3. Open `https://<gebruiker>.github.io/kaarthouder/` in Chrome op je telefoon.
 4. Menu ⋮ → "Toevoegen aan startscherm" / "App installeren".
 
 Na installatie werkt de app offline. De app staat ook in het Android-deelmenu:

@@ -22,6 +22,19 @@
   .iconbtn svg{width:24px;height:24px}
   #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:0 12px 100px}
   .tile{position:relative;border-radius:16px;aspect-ratio:1.586;padding:12px;display:flex;flex-direction:column;justify-content:flex-end;text-align:left;overflow:hidden;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+  .tile .logo{position:absolute;top:10px;left:10px;width:44px;height:44px;border-radius:12px;background:#fff;display:grid;place-items:center;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .tile .logo img{width:34px;height:34px;object-fit:contain}
+  .tile.dark{color:#111}.tile.dark .nm{text-shadow:none}.tile.dark .badge{background:rgba(0,0,0,.15)}
+  .sugg{display:flex;flex-wrap:wrap;gap:8px;margin:-2px 0 12px}
+  .sugg:empty{display:none}
+  .chip{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border-radius:999px;background:var(--bg);border:1px solid var(--line);font-size:14px}
+  .chip .ci{width:26px;height:26px;border-radius:7px;background:#fff;display:grid;place-items:center;overflow:hidden;flex:none;color:#111;font-size:11px;font-weight:800}
+  .chip .ci img{width:20px;height:20px;object-fit:contain}
+  .domainrow{display:flex;gap:8px;align-items:flex-end}
+  .domainrow label{flex:1}
+  .logoprev{width:48px;height:48px;border-radius:12px;background:#fff;display:grid;place-items:center;overflow:hidden;margin-bottom:10px;flex:none;color:#111;font-weight:800}
+  .logoprev img{width:38px;height:38px;object-fit:contain}
+  .nologo::after{content:attr(data-a);font-weight:800;color:#111;font-size:13px}
   .tile .abbr{position:absolute;top:8px;left:12px;font-weight:800;font-size:30px;opacity:.35;letter-spacing:-1px}
   .tile .nm{font-weight:700;font-size:17px;text-shadow:0 1px 2px rgba(0,0,0,.35);word-break:break-word}
   .tile .sub{font-size:12px;opacity:.85}
@@ -127,6 +140,11 @@
     </div>
 
     <label class="f">Winkel<input id="eName" placeholder="bv. Jumbo" autocomplete="off"></label>
+    <div class="sugg" id="eSugg"></div>
+    <div class="domainrow">
+      <label class="f">Website (voor het logo)<input id="eDomain" placeholder="wordt automatisch gezocht" autocomplete="off" inputmode="url"></label>
+      <div class="logoprev" id="eLogo"></div>
+    </div>
     <div class="row">
       <label class="f">Code / nummer<input id="eCode" inputmode="text" autocomplete="off"></label>
       <label class="f" style="flex:.8">Type code
@@ -157,6 +175,11 @@
 <div class="sheet" id="menuSheet">
   <div class="box">
     <h3>Kaartjes</h3>
+    <div class="menu-item" style="cursor:default">Land voor standaardwinkels
+      <div class="seg" id="mCountry" style="margin:8px 0 0">
+        <button data-v="be">België</button><button data-v="nl">Nederland</button><button data-v="both">Beide</button>
+      </div>
+    </div>
     <button class="menu-item" id="mExport">Back-up exporteren<small>Bewaar alle kaarten als bestand (bv. in Google Drive)</small></button>
     <button class="menu-item" id="mImport">Back-up importeren<small>Kaarten uit een back-upbestand toevoegen</small></button>
     <input type="file" id="importIn" accept=".json,application/json" class="hidden">
@@ -430,6 +453,88 @@ function toCanvas(src, maxSide, crop) {
 }
 
 /* =========================================================
+   Standard stores (België/Nederland) + logos
+   ========================================================= */
+// [naam, website BE, website NL, kleur]  (null = winkel bestaat niet in dat land)
+const PRESET_DATA = [
+  // Supermarkten
+  ['Albert Heijn','ah.be','ah.nl','#00a0e2'], ['Jumbo','jumbo.com','jumbo.com','#ffc800'],
+  ['Lidl','lidl.be','lidl.nl','#0050aa'], ['Aldi','aldi.be','aldi.nl','#00205b'],
+  ['Colruyt','colruyt.be',null,'#e3051b'], ['Delhaize','delhaize.be',null,'#c8102e'], ['Carrefour','carrefour.be',null,'#004e9f'],
+  ['Spar','spar.be','spar.nl','#e30613'], ['Okay','okay.be',null,'#e30613'], ['Intermarché','intermarche.be',null,'#e2001a'],
+  ['Bio-Planet','bioplanet.be',null,'#7ab51d'], ['Makro','makro.be','makro.nl','#003d7c'],
+  ['Plus',null,'plus.nl','#00843d'], ['Dirk',null,'dirk.nl','#e30613'], ['Hoogvliet',null,'hoogvliet.com','#003f8a'],
+  ['Vomar',null,'vomar.nl','#e30613'], ['DekaMarkt',null,'dekamarkt.nl','#e30613'], ['Coop',null,'coop.nl','#f47920'],
+  ['Poiesz',null,'poiesz-supermarkten.nl','#e30613'], ['Ekoplaza',null,'ekoplaza.nl','#6ab023'], ['Picnic',null,'picnic.app','#e1171e'],
+  // Drogist, verzorging, optiek
+  ['Kruidvat','kruidvat.be','kruidvat.nl','#e2001a'], ['Etos',null,'etos.nl','#0050a0'], ['Trekpleister',null,'trekpleister.nl','#e2001a'],
+  ['Di','di.be',null,'#e6007e'], ['Ici Paris XL','iciparisxl.be','iciparisxl.nl','#111111'], ['Douglas',null,'douglas.nl','#111111'],
+  ['Pearle','pearle.be','pearle.nl','#003c71'], ['Specsavers',null,'specsavers.nl','#00843d'], ['Hans Anders','hansanders.be','hansanders.nl','#e30613'],
+  // Warenhuis, non-food
+  ['Hema','hema.be','hema.nl','#e30613'], ['Action','action.com','action.com','#0072bb'], ['Zeeman','zeeman.com','zeeman.com','#0078c8'],
+  ['Wibra','wibra.be','wibra.nl','#e30613'], ['Blokker',null,'blokker.nl','#e30613'], ['Xenos',null,'xenos.nl','#e30613'],
+  ['Trafic','trafic.be',null,'#e30613'], ['De Bijenkorf',null,'debijenkorf.nl','#111111'], ['Bol',null,'bol.com','#0000a4'],
+  ['Intertoys',null,'intertoys.nl','#e30613'], ['Dreamland','dreamland.be',null,'#e30613'], ['Gall & Gall',null,'gall.nl','#00563f'],
+  // Boeken
+  ['Club','club.be',null,'#e30613'], ['Standaard Boekhandel','standaardboekhandel.be',null,'#e30613'],
+  ['Bruna',null,'bruna.nl','#e30613'], ['AKO',null,'ako.nl','#e30613'], ['Fnac','fnac.be',null,'#e1a925'],
+  // Doe-het-zelf, wonen
+  ['GAMMA','gamma.be','gamma.nl','#f47b20'], ['Praxis','praxis.be','praxis.nl','#e30613'], ['Karwei',null,'karwei.nl','#e5007d'],
+  ['Hornbach',null,'hornbach.nl','#f7931e'], ['Hubo','hubo.be','hubo.nl','#e30613'], ['Brico','brico.be',null,'#ff6600'],
+  ['IKEA','ikea.com','ikea.com','#0058a3'], ['Leen Bakker','leenbakker.be','leenbakker.nl','#e30613'], ['Kwantum',null,'kwantum.nl','#e30613'],
+  ['Intratuin',null,'intratuin.nl','#6ab023'], ['Jysk','jysk.be','jysk.nl','#143c8a'],
+  // Elektro
+  ['MediaMarkt','mediamarkt.be','mediamarkt.nl','#df0000'], ['Coolblue','coolblue.be','coolblue.nl','#0090e3'],
+  ['Vanden Borre','vandenborre.be',null,'#e30613'], ['Krëfel','krefel.be',null,'#e30613'],
+  // Kleding, sport
+  ['Decathlon','decathlon.be','decathlon.nl','#0082c3'], ['A.S.Adventure','asadventure.com',null,'#e30613'],
+  ['Torfs','torfs.be',null,'#111111'], ['JBC','jbc.be',null,'#111111'], ['C&A','c-and-a.com','c-and-a.com','#e30613'],
+  ['H&M','hm.com','hm.com','#e50010'], ['Primark','primark.com','primark.com','#0dafe5'], ['Zara','zara.com','zara.com','#111111'],
+  ['Hunkemöller','hunkemoller.be','hunkemoller.nl','#111111'], ['Scapino',null,'scapino.nl','#e30613'], ['Van Haren',null,'vanharen.nl','#e30613'],
+  // Mobiliteit, overig
+  ['Q8','q8.be',null,'#0066b3'], ['Shell','shell.be','shell.nl','#ffd500'], ['TotalEnergies','totalenergies.be','totalenergies.nl','#e30613'],
+  ['NMBS','belgianrail.be',null,'#0068b3'], ['De Lijn','delijn.be',null,'#ffd800'], ['NS',null,'ns.nl','#ffc917'],
+  ['ANWB',null,'anwb.nl','#ffd100'], ['Bibliotheek','bibliotheek.be','bibliotheek.nl','#f39200'],
+];
+function settings() { try { return JSON.parse(localStorage.getItem('kaartjes-settings')) || {}; } catch { return {}; } }
+function saveSettings(o) { try { localStorage.setItem('kaartjes-settings', JSON.stringify({ ...settings(), ...o })); } catch {} }
+function country() {
+  const c = settings().country;
+  if (c) return c;
+  return /-BE\b/i.test(navigator.language || '') || (navigator.languages || []).some(l => /-BE\b/i.test(l)) ? 'be'
+       : /^nl\b/i.test(navigator.language || '') ? 'nl' : 'be';
+}
+let PRESETS = [];
+function buildPresets() {
+  const c = country();
+  PRESETS = PRESET_DATA
+    .filter(([, be, nl]) => c === 'be' ? be : c === 'nl' ? nl : (be || nl))
+    .map(([name, be, nl, color]) => ({ name, domain: (c === 'nl' ? nl || be : be || nl), color }));
+}
+buildPresets();
+
+function findPreset(name) { const n = norm(name.trim()); return n ? PRESETS.find(p => norm(p.name) === n) : null; }
+function cleanDomain(d) { return (d || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''); }
+function logoUrl(domain) { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`; }
+function logoImg(domain) { // hides itself when the service only returns a generic 16px globe
+  return domain ? `<img src="${logoUrl(domain)}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="if(this.naturalWidth<=16)this.onerror()" onerror="this.parentNode.classList.add('nologo');this.remove()">` : '';
+}
+function probeLogo(domain) {
+  return new Promise(res => {
+    const im = new Image(); im.referrerPolicy = 'no-referrer';
+    const t = setTimeout(() => res(false), 4000);
+    im.onload = () => { clearTimeout(t); res(im.naturalWidth > 16); };
+    im.onerror = () => { clearTimeout(t); res(false); };
+    im.src = logoUrl(domain);
+  });
+}
+function slug(name) { return norm(name).replace(/&/g, 'en').replace(/[^a-z0-9]+/g, ''); }
+function textColorDark(hex) {
+  const n = parseInt((hex || '#000').slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 165;
+}
+
+/* =========================================================
    App state & UI
    ========================================================= */
 const COLORS = ['#e2231a','#f28c00','#f5b800','#2e9e44','#0f7b6c','#1e6fd9','#3b3fb6','#8e3fb6','#d6338f','#6b4f3a','#4a5563','#111418'];
@@ -475,8 +580,10 @@ function tile(c) {
     else if (c.expiry) { const d = daysLeft(c); badge = d === 0 ? 'vandaag' : d === 1 ? 'morgen' : d < 0 ? 'verlopen' : `nog ${d} d`; }
     else badge = 'bon';
   }
-  return `<button class="tile${isExpired(c) ? ' expired' : ''}" data-id="${c.id}" style="background:${c.color || colorFor(c.name)}">
-    <span class="abbr">${esc(abbr(c.name))}</span>${badge ? `<span class="badge">${badge}</span>` : ''}
+  const bg = c.color || colorFor(c.name);
+  const head = c.domain ? `<span class="logo" data-a="${esc(abbr(c.name))}">${logoImg(c.domain)}</span>` : `<span class="abbr">${esc(abbr(c.name))}</span>`;
+  return `<button class="tile${isExpired(c) ? ' expired' : ''}${textColorDark(bg) ? ' dark' : ''}" data-id="${c.id}" style="background:${bg}">
+    ${head}${badge ? `<span class="badge">${badge}</span>` : ''}
     <span class="nm">${esc(c.name)}</span>${c.type === 'voucher' && c.note ? `<span class="sub">${esc(c.note.split('\n')[0]).slice(0, 40)}</span>` : ''}</button>`;
 }
 
@@ -516,9 +623,12 @@ document.addEventListener('visibilitychange', async () => {
 let draft = {};
 function openEdit(card) {
   editing = card || null;
-  draft = card ? { ...card } : { type: 'card', format: 'ean_13', color: null };
+  draft = card ? { ...card, colorPicked: true } : { type: 'card', format: 'ean_13', color: null };
   $('eTitle').textContent = card ? 'Kaart bewerken' : 'Kaart toevoegen';
   $('eName').value = draft.name || '';
+  $('eDomain').value = draft.domain || '';
+  domainTouched = !!draft.domain;
+  renderSugg(); renderLogoPrev();
   $('eCode').value = draft.code || '';
   $('eFormat').value = draft.format || 'ean_13';
   $('eExpiry').value = draft.expiry || '';
@@ -546,6 +656,44 @@ function renderColors() {
   const cur = draft.color || ($('eName').value ? colorFor($('eName').value) : null);
   $('eColors').innerHTML = COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" class="${c === cur ? 'sel' : ''}" aria-label="kleur"></button>`).join('');
 }
+let domainTouched = false, guessTimer, guessSeq = 0;
+function renderSugg() {
+  const q = norm($('eName').value.trim());
+  if (editing || findPreset($('eName').value)) { $('eSugg').innerHTML = ''; return; }
+  const have = new Set(cards.filter(c => c.type !== 'voucher').map(c => norm(c.name)));
+  const list = PRESETS.filter(p => !have.has(norm(p.name)) && (!q || norm(p.name).includes(q))).slice(0, q ? 8 : 12);
+  $('eSugg').innerHTML = list.map(p => `<button type="button" class="chip" data-n="${esc(p.name)}"><span class="ci" data-a="${esc(abbr(p.name))}">${logoImg(p.domain)}</span>${esc(p.name)}</button>`).join('');
+}
+function renderLogoPrev() {
+  const d = cleanDomain($('eDomain').value);
+  $('eLogo').className = 'logoprev'; $('eLogo').dataset.a = abbr($('eName').value || '?');
+  $('eLogo').innerHTML = d ? logoImg(d) : esc(abbr($('eName').value || '?'));
+}
+function applyPreset(p) {
+  $('eName').value = p.name; $('eDomain').value = p.domain; domainTouched = true;
+  if (!draft.colorPicked) draft.color = p.color;
+  renderColors(); renderSugg(); renderLogoPrev();
+}
+function onNameInput() {
+  const p = findPreset($('eName').value);
+  if (p) { applyPreset(p); return; }
+  if (!draft.colorPicked) { draft.color = null; renderColors(); }
+  renderSugg();
+  if (domainTouched) return;
+  clearTimeout(guessTimer);
+  const name = $('eName').value.trim();
+  if (slug(name).length < 2) { $('eDomain').value = ''; renderLogoPrev(); return; }
+  guessTimer = setTimeout(async () => {
+    const seq = ++guessSeq, s = slug(name);
+    for (const d of (country() === 'nl' ? [`${s}.nl`, `${s}.com`, `${s}.be`, `${s}.eu`] : [`${s}.be`, `${s}.com`, `${s}.nl`, `${s}.eu`])) {
+      const ok = await probeLogo(d);
+      if (seq !== guessSeq || domainTouched) return;
+      if (ok) { $('eDomain').value = d; renderLogoPrev(); return; }
+    }
+    $('eDomain').value = ''; renderLogoPrev();
+  }, 600);
+}
+
 let previewTimer;
 function updatePreview() {
   clearTimeout(previewTimer);
@@ -635,9 +783,11 @@ async function save() {
     id: draft.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()),
     expiry: draft.type === 'voucher' ? $('eExpiry').value : '',
     note: $('eNote').value.trim(),
+    domain: cleanDomain($('eDomain').value),
     created: draft.created || Date.now(),
   };
   if (!c.color) c.color = colorFor(name);
+  delete c.colorPicked; delete c.detectedFormat;
   await DB.put(c);
   const wasViewing = viewing && viewing.id === c.id;
   closeEdit();
@@ -690,8 +840,10 @@ $('fileIn').onchange = e => { const f = e.target.files[0]; if (f) handleImage(f)
 $('eLive').onclick = startScan;
 $('scanClose').onclick = stopScan;
 $('eType').onclick = e => { const b = e.target.closest('button'); if (b) setType(b.dataset.v); };
-$('eColors').onclick = e => { const b = e.target.closest('button'); if (b) { draft.color = b.dataset.c; renderColors(); } };
-$('eName').addEventListener('input', () => { if (!draft.color) renderColors(); });
+$('eColors').onclick = e => { const b = e.target.closest('button'); if (b) { draft.color = b.dataset.c; draft.colorPicked = true; renderColors(); } };
+$('eName').addEventListener('input', onNameInput);
+$('eSugg').onclick = e => { const b = e.target.closest('.chip'); if (b) { const p = findPreset(b.dataset.n); if (p) { applyPreset(p); if (!$('eCode').value) $('ePhoto').focus(); } } };
+$('eDomain').addEventListener('input', () => { domainTouched = !!$('eDomain').value.trim(); renderLogoPrev(); });
 $('eCode').addEventListener('input', updatePreview);
 $('eFormat').addEventListener('change', updatePreview);
 $('eCancel').onclick = () => closeEdit();
@@ -707,7 +859,9 @@ $('cYes').onclick = async () => {
   if ($('view').classList.contains('open')) setTimeout(() => closeCard(), 50);
   await load(); toast('Verwijderd');
 };
-$('menuBtn').onclick = () => $('menuSheet').classList.add('open');
+$('menuBtn').onclick = () => { renderCountry(); $('menuSheet').classList.add('open'); };
+function renderCountry() { for (const b of $('mCountry').children) b.classList.toggle('on', b.dataset.v === country()); }
+$('mCountry').onclick = e => { const b = e.target.closest('button'); if (!b) return; saveSettings({ country: b.dataset.v }); buildPresets(); renderCountry(); toast(b.textContent + ' gekozen'); };
 $('mClose').onclick = () => $('menuSheet').classList.remove('open');
 $('mExport').onclick = () => { $('menuSheet').classList.remove('open'); exportBackup(); };
 $('mImport').onclick = () => $('importIn').click();
