@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111418">
+<title>Kaartjes</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{--bg:#111418;--panel:#1b1f25;--line:#2a3038;--text:#eef1f4;--muted:#8a94a1;--accent:#3ddc84;--danger:#ff5d5d}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  input,select,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-color:transparent}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:8px;padding:12px}
+  #search{flex:1;font-size:17px;border-radius:14px;background:var(--panel);border-color:var(--panel)}
+  .iconbtn{width:48px;height:48px;border-radius:14px;background:var(--panel);display:grid;place-items:center;flex:none}
+  .iconbtn svg{width:24px;height:24px}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:0 12px 100px}
+  .tile{position:relative;border-radius:16px;aspect-ratio:1.586;padding:12px;display:flex;flex-direction:column;justify-content:flex-end;text-align:left;overflow:hidden;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+  .tile .abbr{position:absolute;top:8px;left:12px;font-weight:800;font-size:30px;opacity:.35;letter-spacing:-1px}
+  .tile .nm{font-weight:700;font-size:17px;text-shadow:0 1px 2px rgba(0,0,0,.35);word-break:break-word}
+  .tile .sub{font-size:12px;opacity:.85}
+  .tile.expired{filter:grayscale(1);opacity:.5}
+  .badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.35);border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600}
+  .empty{padding:40px 24px;text-align:center;color:var(--muted)}
+  .section{grid-column:1/-1;color:var(--muted);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:8px}
+  #fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:20px;background:var(--accent);color:#06210f;display:grid;place-items:center;box-shadow:0 6px 20px rgba(0,0,0,.4);z-index:6}
+  #fab svg{width:30px;height:30px}
+
+  /* Card view */
+  #view{position:fixed;inset:0;background:#fff;color:#111;z-index:20;display:none;flex-direction:column}
+  #view.open{display:flex}
+  #view .top{display:flex;align-items:center;gap:8px;padding:calc(12px + env(safe-area-inset-top)) 12px 12px}
+  #view .top h2{flex:1;margin:0;font-size:22px}
+  #view .top .iconbtn{background:#f0f2f4}
+  #view .code{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:14px}
+  #view .code svg,#view .code img{max-width:100%;max-height:55vh}
+  #view .code svg.bar{width:100%;height:auto;max-height:40vh}
+  #view .num{font:600 22px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;text-align:center;word-break:break-all}
+  #view .note{color:#555;text-align:center;font-size:14px;white-space:pre-wrap}
+  #view .warn{color:#b35400;font-size:13px;text-align:center}
+  #view .bottom{display:flex;gap:10px;padding:12px 12px calc(16px + env(safe-area-inset-bottom))}
+  #view .bottom button{flex:1;padding:14px;border-radius:12px;background:#f0f2f4;font-weight:600}
+  #view .bottom button.used{background:#111;color:#fff}
+
+  /* Sheets */
+  .sheet{position:fixed;inset:0;z-index:30;display:none;background:rgba(0,0,0,.55);align-items:flex-end;justify-content:center}
+  .sheet.open{display:flex}
+  .sheet .box{background:var(--panel);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+  .sheet h3{margin:0 0 12px;font-size:20px}
+  .row{display:flex;gap:8px;margin-bottom:10px}
+  .row>*{flex:1}
+  label.f{display:block;margin-bottom:10px;font-size:13px;color:var(--muted)}
+  label.f>input,label.f>select,label.f>textarea{margin-top:4px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:12px;background:var(--line);font-weight:600;width:100%}
+  .btn.primary{background:var(--accent);color:#06210f}
+  .btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+  .status{font-size:14px;margin:6px 0 12px;min-height:20px;color:var(--muted)}
+  .status.ok{color:var(--accent)} .status.bad{color:#ffb35d}
+  #preview{background:#fff;border-radius:12px;padding:12px;margin-bottom:12px;display:none;justify-content:center}
+  #preview svg,#preview img{max-width:100%;max-height:140px}
+  .colors{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .colors button{width:34px;height:34px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.15)}
+  .colors button.sel{outline:3px solid #fff;outline-offset:2px}
+  .seg{display:flex;background:var(--bg);border-radius:12px;padding:4px;margin-bottom:12px}
+  .seg button{flex:1;padding:9px;border-radius:9px;color:var(--muted);font-weight:600}
+  .seg button.on{background:var(--line);color:var(--text)}
+  #scanner{position:fixed;inset:0;z-index:40;background:#000;display:none;flex-direction:column}
+  #scanner.open{display:flex}
+  #scanner video{flex:1;width:100%;object-fit:cover}
+  #scanner .frame{position:absolute;left:10%;right:10%;top:35%;height:30%;border:3px solid var(--accent);border-radius:16px;pointer-events:none}
+  #scanner .bar{position:absolute;left:0;right:0;bottom:0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:flex;gap:10px;align-items:center;background:linear-gradient(transparent,rgba(0,0,0,.8))}
+  #scanner .bar span{flex:1;color:#fff}
+  .menu-item{display:block;width:100%;text-align:left;padding:14px 4px;border-bottom:1px solid var(--line)}
+  .menu-item small{display:block;color:var(--muted)}
+  #toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:12px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
+  #toast.show{opacity:1}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header>
+  <input id="search" type="search" placeholder="Zoek winkel…" autocomplete="off" enterkeyhint="go">
+  <button class="iconbtn" id="menuBtn" aria-label="Menu">
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+  </button>
+</header>
+
+<main id="grid"></main>
+
+<button id="fab" aria-label="Kaart toevoegen">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<!-- Fullscreen card view -->
+<section id="view" aria-modal="true">
+  <div class="top">
+    <h2 id="vName"></h2>
+    <button class="iconbtn" id="vEdit" aria-label="Bewerken"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg></button>
+    <button class="iconbtn" id="vClose" aria-label="Sluiten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="code" id="vCode"></div>
+  <div class="bottom" id="vBottom"></div>
+</section>
+
+<!-- Add / edit sheet -->
+<div class="sheet" id="editSheet">
+  <div class="box">
+    <h3 id="eTitle">Kaart toevoegen</h3>
+    <div class="row">
+      <button class="btn primary" id="ePhoto">📷 Foto / screenshot</button>
+      <button class="btn" id="eLive">Live scannen</button>
+    </div>
+    <input type="file" id="fileIn" accept="image/*" class="hidden">
+    <div class="status" id="eStatus">Kies een foto of screenshot van je kaart. De code wordt automatisch herkend.</div>
+    <div id="preview"></div>
+
+    <div class="seg" id="eType">
+      <button data-v="card" class="on">Klantenkaart</button>
+      <button data-v="voucher">Bon / korting</button>
+    </div>
+
+    <label class="f">Winkel<input id="eName" placeholder="bv. Jumbo" autocomplete="off"></label>
+    <div class="row">
+      <label class="f">Code / nummer<input id="eCode" inputmode="text" autocomplete="off"></label>
+      <label class="f" style="flex:.8">Type code
+        <select id="eFormat">
+          <option value="ean_13">EAN-13</option>
+          <option value="ean_8">EAN-8</option>
+          <option value="upc_a">UPC-A</option>
+          <option value="code_128">Code 128</option>
+          <option value="qr_code">QR-code</option>
+          <option value="image">Alleen foto</option>
+          <option value="text">Alleen tekst</option>
+        </select>
+      </label>
+    </div>
+    <label class="f" id="eExpiryWrap">Geldig tot<input id="eExpiry" type="date"></label>
+    <label class="f">Notitie<textarea id="eNote" rows="2" placeholder="bv. kortingscode, voorwaarden…"></textarea></label>
+    <label class="f">Kleur<div class="colors" id="eColors"></div></label>
+
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="eCancel">Annuleren</button>
+      <button class="btn primary" id="eSave">Opslaan</button>
+    </div>
+    <button class="btn danger hidden" id="eDelete" style="margin-top:10px">Verwijderen</button>
+  </div>
+</div>
+
+<!-- Menu sheet -->
+<div class="sheet" id="menuSheet">
+  <div class="box">
+    <h3>Kaartjes</h3>
+    <button class="menu-item" id="mExport">Back-up exporteren<small>Bewaar alle kaarten als bestand (bv. in Google Drive)</small></button>
+    <button class="menu-item" id="mImport">Back-up importeren<small>Kaarten uit een back-upbestand toevoegen</small></button>
+    <input type="file" id="importIn" accept=".json,application/json" class="hidden">
+    <button class="menu-item" id="mClose" style="border:0;color:var(--muted)">Sluiten</button>
+  </div>
+</div>
+
+<!-- Confirm sheet -->
+<div class="sheet" id="confirmSheet">
+  <div class="box">
+    <h3 id="cText"></h3>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="cNo">Annuleren</button>
+      <button class="btn danger" id="cYes">Verwijderen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Live scanner -->
+<section id="scanner">
+  <video id="video" playsinline muted></video>
+  <div class="frame"></div>
+  <div class="bar"><span id="scanMsg">Richt op de barcode…</span><button class="btn" style="width:auto;padding:12px 18px" id="scanClose">Stop</button></div>
+</section>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =========================================================
+   Storage (IndexedDB)
+   ========================================================= */
+const DB = (() => {
+  let dbp;
+  function open() {
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      const r = indexedDB.open('kaartjes', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('cards', { keyPath: 'id' });
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return dbp;
+  }
+  async function tx(mode, fn) {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('cards', mode);
+      const s = t.objectStore('cards');
+      const out = fn(s);
+      t.oncomplete = () => res(out && out.result !== undefined ? out.result : out);
+      t.onerror = () => rej(t.error);
+    });
+  }
+  return {
+    all: () => tx('readonly', s => s.getAll()),
+    put: c => tx('readwrite', s => s.put(c)),
+    del: id => tx('readwrite', s => s.delete(id)),
+  };
+})();
+
+/* =========================================================
+   Barcode encoders -> SVG
+   ========================================================= */
+const C128 = ['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213','221312','231212','112232','122132','122231','113222','123122','123221','223211','221132','221231','213212','223112','312131','311222','321122','321221','312212','322112','322211','212123','212321','232121','111323','131123','131321','112313','132113','132311','211313','231113','231311','112133','112331','132131','113123','113321','133121','313121','211331','231131','213113','213311','213131','311123','311321','331121','312113','312311','332111','314111','221411','431111','111224','111422','121124','121421','141122','141221','112214','112412','122114','122411','142112','142211','241211','221114','413111','241112','134111','111242','121142','121241','114212','124112','124211','411212','421112','421211','212141','214121','412121','111143','111341','131141','114113','114311','411113','411311','113141','114131','311141','411131','211412','211214','211232','2331112'];
+
+function code128Values(text) {
+  // Returns array of symbol values incl. start, checksum, stop. Uses set C for digit runs, set B otherwise.
+  for (const ch of text) { const c = ch.charCodeAt(0); if (c < 32 || c > 126) return null; }
+  const vals = [];
+  let set = null, i = 0;
+  const digitRun = k => { let n = 0; while (k + n < text.length && /\d/.test(text[k + n])) n++; return n; };
+  while (i < text.length) {
+    const run = digitRun(i);
+    const useC = run >= 4 && (i === 0 || i + run === text.length || run >= 6);
+    if (useC) {
+      let n = run - (run % 2);
+      if (set !== 'C') {
+        if (run % 2 && set === null) { // odd run at start: emit 1 digit in B first
+          vals.push(104); set = 'B'; vals.push(text.charCodeAt(i) - 32); i++; n = run - 1;
+        }
+        vals.push(set === null ? 105 : 99); set = 'C';
+      }
+      for (let k = 0; k < n; k += 2) vals.push(parseInt(text.substr(i + k, 2), 10));
+      i += n;
+    } else {
+      if (set !== 'B') { vals.push(set === null ? 104 : 100); set = 'B'; }
+      vals.push(text.charCodeAt(i) - 32); i++;
+    }
+  }
+  let sum = vals[0];
+  for (let k = 1; k < vals.length; k++) sum += vals[k] * k;
+  vals.push(sum % 103, 106);
+  return vals;
+}
+function code128Modules(text) {
+  const v = code128Values(text);
+  if (!v) return null;
+  let bits = '';
+  for (const val of v) {
+    const w = C128[val];
+    for (let k = 0; k < w.length; k++) bits += (k % 2 ? '0' : '1').repeat(+w[k]);
+  }
+  return bits;
+}
+
+const EAN_L = ['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
+const EAN_R = EAN_L.map(s => s.replace(/./g, b => b === '0' ? '1' : '0'));
+const EAN_G = EAN_R.map(s => s.split('').reverse().join(''));
+const EAN_PAR = ['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG','LGGLLG','LGGGLL','LGLGLL','LGLGGL','LGGLGL'];
+function eanCheck(d) { // d = digits without check
+  let s = 0; const n = d.length;
+  for (let i = 0; i < n; i++) s += +d[n - 1 - i] * (i % 2 ? 1 : 3);
+  return (10 - s % 10) % 10;
+}
+function eanValid(code) { return /^\d+$/.test(code) && eanCheck(code.slice(0, -1)) === +code.slice(-1); }
+function ean13Modules(code) {
+  if (!/^\d{13}$/.test(code)) return null;
+  const par = EAN_PAR[+code[0]];
+  let b = '101';
+  for (let i = 1; i <= 6; i++) b += (par[i - 1] === 'L' ? EAN_L : EAN_G)[+code[i]];
+  b += '01010';
+  for (let i = 7; i <= 12; i++) b += EAN_R[+code[i]];
+  return b + '101';
+}
+function ean8Modules(code) {
+  if (!/^\d{8}$/.test(code)) return null;
+  let b = '101';
+  for (let i = 0; i < 4; i++) b += EAN_L[+code[i]];
+  b += '01010';
+  for (let i = 4; i < 8; i++) b += EAN_R[+code[i]];
+  return b + '101';
+}
+
+function barsSvg(bits) {
+  const quiet = 12, h = 60, W = bits.length + quiet * 2;
+  let rects = '', i = 0;
+  while (i < bits.length) {
+    if (bits[i] === '1') { let j = i; while (bits[j] === '1') j++; rects += `<rect x="${i + quiet}" y="0" width="${j - i}" height="${h}"/>`; i = j; }
+    else i++;
+  }
+  return `<svg class="bar" viewBox="0 0 ${W} ${h}" preserveAspectRatio="none" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${h}" fill="#fff"/><g fill="#000">${rects}</g></svg>`;
+}
+
+let qrLibPromise;
+function loadQrLib() {
+  if (window.qrcode) return Promise.resolve();
+  return qrLibPromise ||= new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+    s.onload = res; s.onerror = () => { qrLibPromise = null; rej(new Error('qr lib')); };
+    document.head.appendChild(s);
+  });
+}
+async function qrSvg(text) {
+  await loadQrLib();
+  const q = qrcode(0, 'M'); q.addData(text, 'Byte'); q.make();
+  const n = q.getModuleCount(), m = 4, W = n + m * 2;
+  let p = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) p += `M${c + m} ${r + m}h1v1h-1z`;
+  return `<svg viewBox="0 0 ${W} ${W}" width="300" height="300" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${W}" fill="#fff"/><path d="${p}" fill="#000"/></svg>`;
+}
+
+// Render the best possible representation of a card's code.
+async function renderCode(card) {
+  const code = (card.code || '').trim();
+  const f = card.format;
+  const img = card.image ? `<img src="${card.image}" alt="">` : '';
+  try {
+    if (f === 'image') return { html: img || '<div class="warn">Geen afbeelding</div>' };
+    if (f === 'text' || !code) return { html: '' };
+    if (f === 'qr_code') return { html: await qrSvg(code) };
+    if (f === 'ean_13' && eanValid(code)) return { html: barsSvg(ean13Modules(code)) };
+    if (f === 'upc_a' && /^\d{12}$/.test(code) && eanValid(code)) return { html: barsSvg(ean13Modules('0' + code)) };
+    if (f === 'ean_8' && eanValid(code) && code.length === 8) return { html: barsSvg(ean8Modules(code)) };
+    if (f === 'code_128' || ['ean_13','ean_8','upc_a'].includes(f)) {
+      const m = code128Modules(code);
+      if (m) return { html: barsSvg(m), warn: f !== 'code_128' ? 'Controlecijfer klopt niet, getoond als Code 128.' : '' };
+    }
+    // Other formats (code_39, itf, pdf417, data_matrix, aztec…): show original photo if we have it.
+    if (img) return { html: img };
+    const m = code128Modules(code);
+    if (m) return { html: barsSvg(m), warn: 'Origineel formaat niet ondersteund, getoond als Code 128.' };
+  } catch (e) {
+    if (img) return { html: img, warn: 'QR-code kon niet getekend worden (offline?), originele foto getoond.' };
+    return { html: '', warn: 'Code kon niet getekend worden.' };
+  }
+  return { html: img };
+}
+
+/* =========================================================
+   Barcode detection from images / camera
+   ========================================================= */
+const FORMAT_MAP = { // ZXing enum names -> our names
+  EAN_13:'ean_13', EAN_8:'ean_8', UPC_A:'upc_a', UPC_E:'upc_e', CODE_128:'code_128', CODE_39:'code_39', CODE_93:'code_93',
+  ITF:'itf', CODABAR:'codabar', QR_CODE:'qr_code', DATA_MATRIX:'data_matrix', PDF_417:'pdf417', AZTEC:'aztec'
+};
+let nativeDetector;
+async function getNativeDetector() {
+  if (nativeDetector !== undefined) return nativeDetector;
+  nativeDetector = null;
+  if ('BarcodeDetector' in window) {
+    try {
+      const formats = await BarcodeDetector.getSupportedFormats();
+      if (formats.length) nativeDetector = new BarcodeDetector({ formats });
+    } catch {}
+  }
+  return nativeDetector;
+}
+let zxingPromise;
+function loadZxing() {
+  if (window.ZXing) return Promise.resolve();
+  return zxingPromise ||= new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+    s.onload = res; s.onerror = () => { zxingPromise = null; rej(new Error('zxing')); };
+    document.head.appendChild(s);
+  });
+}
+
+// Returns {code, format, box} or null. `source` is a canvas.
+async function detectIn(canvas) {
+  const det = await getNativeDetector();
+  if (det) {
+    try {
+      const r = await det.detect(canvas);
+      if (r.length) {
+        // prefer largest code
+        r.sort((a, b) => b.boundingBox.width * b.boundingBox.height - a.boundingBox.width * a.boundingBox.height);
+        return { code: r[0].rawValue, format: r[0].format, box: r[0].boundingBox };
+      }
+    } catch {}
+  }
+  try {
+    await loadZxing();
+    const hints = new Map([[ZXing.DecodeHintType.TRY_HARDER, true]]);
+    const reader = new ZXing.MultiFormatReader(); reader.setHints(hints);
+    const ctx = canvas.getContext('2d');
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const lum = new ZXing.RGBLuminanceSource(rgbaToGray(data), canvas.width, canvas.height);
+    const res = reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum)));
+    return { code: res.getText(), format: FORMAT_MAP[ZXing.BarcodeFormat[res.getBarcodeFormat()]] || 'code_128', box: null };
+  } catch { return null; }
+}
+function rgbaToGray(img) {
+  const d = img.data, out = new Uint8ClampedArray(img.width * img.height);
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) out[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+  return out;
+}
+
+function loadImage(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = url;
+  });
+}
+function toCanvas(src, maxSide, crop) {
+  const sw = crop ? crop.width : (src.naturalWidth || src.videoWidth || src.width);
+  const sh = crop ? crop.height : (src.naturalHeight || src.videoHeight || src.height);
+  const s = Math.min(1, maxSide / Math.max(sw, sh));
+  const c = document.createElement('canvas');
+  c.width = Math.round(sw * s); c.height = Math.round(sh * s);
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  if (crop) ctx.drawImage(src, crop.x, crop.y, crop.width, crop.height, 0, 0, c.width, c.height);
+  else ctx.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+
+/* =========================================================
+   App state & UI
+   ========================================================= */
+const COLORS = ['#e2231a','#f28c00','#f5b800','#2e9e44','#0f7b6c','#1e6fd9','#3b3fb6','#8e3fb6','#d6338f','#6b4f3a','#4a5563','#111418'];
+let cards = [];
+let editing = null; // card object being edited
+let viewing = null;
+let ignorePop = 0; // popstate events caused by our own history.back()
+const $ = id => document.getElementById(id);
+
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function abbr(name) { const w = name.trim().split(/\s+/); return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase(); }
+function colorFor(name) { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % (COLORS.length - 1)]; }
+function today() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function isExpired(c) { return c.type === 'voucher' && c.expiry && new Date(c.expiry + 'T23:59:59') < new Date(); }
+function daysLeft(c) { return Math.round((new Date(c.expiry + 'T00:00:00') - today()) / 864e5); }
+function norm(s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+async function load() { cards = await DB.all(); render(); }
+
+function render() {
+  const q = norm($('search').value.trim());
+  const list = cards.filter(c => !q || norm(c.name).includes(q) || norm(c.note || '').includes(q));
+  const score = c => (c.uses || 0) * 10 + (c.lastUsed ? Math.max(0, 30 - (Date.now() - c.lastUsed) / 864e5) : 0);
+  const byScore = (a, b) => score(b) - score(a) || a.name.localeCompare(b.name);
+  const cardsL = list.filter(c => c.type !== 'voucher').sort(byScore);
+  const vouchers = list.filter(c => c.type === 'voucher').sort((a, b) =>
+    isExpired(a) - isExpired(b) || (a.expiry || '9999').localeCompare(b.expiry || '9999'));
+  const g = $('grid');
+  if (!cards.length) {
+    g.innerHTML = `<div class="empty" style="grid-column:1/-1"><p style="font-size:44px;margin:0">🪪</p><p>Nog geen kaarten.<br>Tik op <b>+</b> en kies een screenshot of foto van je klantenkaart.</p></div>`;
+    return;
+  }
+  if (!list.length) { g.innerHTML = `<div class="empty" style="grid-column:1/-1">Geen kaart gevonden voor “${esc($('search').value)}”.</div>`; return; }
+  let html = cardsL.map(tile).join('');
+  if (vouchers.length) html += `<div class="section">Bonnen &amp; korting</div>` + vouchers.map(tile).join('');
+  g.innerHTML = html;
+}
+function tile(c) {
+  let badge = '';
+  if (c.type === 'voucher') {
+    if (isExpired(c)) badge = 'verlopen';
+    else if (c.expiry) { const d = daysLeft(c); badge = d === 0 ? 'vandaag' : d === 1 ? 'morgen' : d < 0 ? 'verlopen' : `nog ${d} d`; }
+    else badge = 'bon';
+  }
+  return `<button class="tile${isExpired(c) ? ' expired' : ''}" data-id="${c.id}" style="background:${c.color || colorFor(c.name)}">
+    <span class="abbr">${esc(abbr(c.name))}</span>${badge ? `<span class="badge">${badge}</span>` : ''}
+    <span class="nm">${esc(c.name)}</span>${c.type === 'voucher' && c.note ? `<span class="sub">${esc(c.note.split('\n')[0]).slice(0, 40)}</span>` : ''}</button>`;
+}
+
+/* ---------- Card view ---------- */
+let wakeLock = null;
+async function openCard(id) {
+  const c = cards.find(x => x.id === id); if (!c) return;
+  viewing = c;
+  $('vName').textContent = c.name;
+  $('vCode').innerHTML = '<div class="note">…</div>';
+  $('view').classList.add('open');
+  history.pushState({ v: 'card' }, '');
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+  const r = await renderCode(c);
+  const showNum = c.code && c.format !== 'image';
+  $('vCode').innerHTML = `${r.html}${showNum ? `<div class="num">${esc(c.code)}</div>` : ''}
+    ${r.warn ? `<div class="warn">${esc(r.warn)}</div>` : ''}
+    ${c.type === 'voucher' && c.expiry ? `<div class="note">Geldig tot ${new Date(c.expiry).toLocaleDateString('nl-BE')}${isExpired(c) ? ' — verlopen' : ''}</div>` : ''}
+    ${c.note ? `<div class="note">${esc(c.note)}</div>` : ''}`;
+  $('vBottom').innerHTML = c.type === 'voucher'
+    ? `<button id="vUsed" class="used">Gebruikt — verwijderen</button>` : '';
+  if ($('vUsed')) $('vUsed').onclick = () => confirmDelete(c, true);
+  c.uses = (c.uses || 0) + 1; c.lastUsed = Date.now(); DB.put(c);
+}
+function closeCard(fromPop) {
+  if (!$('view').classList.contains('open')) return;
+  $('view').classList.remove('open'); viewing = null;
+  wakeLock?.release?.().catch(() => {}); wakeLock = null;
+  render();
+  if (!fromPop) { ignorePop++; history.back(); }
+}
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && viewing && !wakeLock) { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {} }
+});
+
+/* ---------- Edit sheet ---------- */
+let draft = {};
+function openEdit(card) {
+  editing = card || null;
+  draft = card ? { ...card } : { type: 'card', format: 'ean_13', color: null };
+  $('eTitle').textContent = card ? 'Kaart bewerken' : 'Kaart toevoegen';
+  $('eName').value = draft.name || '';
+  $('eCode').value = draft.code || '';
+  $('eFormat').value = draft.format || 'ean_13';
+  $('eExpiry').value = draft.expiry || '';
+  $('eNote').value = draft.note || '';
+  $('eDelete').classList.toggle('hidden', !card);
+  setStatus(card ? '' : 'Kies een foto of screenshot van je kaart. De code wordt automatisch herkend.');
+  setType(draft.type);
+  renderColors();
+  updatePreview();
+  $('editSheet').classList.add('open');
+  history.pushState({ v: 'edit' }, '');
+}
+function closeEdit(fromPop) {
+  if (!$('editSheet').classList.contains('open')) return;
+  $('editSheet').classList.remove('open');
+  if (!fromPop) { ignorePop++; history.back(); }
+}
+function setStatus(msg, cls = '') { const s = $('eStatus'); s.textContent = msg; s.className = 'status ' + cls; }
+function setType(t) {
+  draft.type = t;
+  for (const b of $('eType').children) b.classList.toggle('on', b.dataset.v === t);
+  $('eExpiryWrap').classList.toggle('hidden', t !== 'voucher');
+}
+function renderColors() {
+  const cur = draft.color || ($('eName').value ? colorFor($('eName').value) : null);
+  $('eColors').innerHTML = COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" class="${c === cur ? 'sel' : ''}" aria-label="kleur"></button>`).join('');
+}
+let previewTimer;
+function updatePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(async () => {
+    const c = { ...draft, code: $('eCode').value.trim(), format: $('eFormat').value };
+    const r = (c.code || c.format === 'image') ? await renderCode(c) : { html: '' };
+    $('preview').innerHTML = r.html;
+    $('preview').style.display = r.html ? 'flex' : 'none';
+  }, 150);
+}
+
+async function handleImage(file) {
+  setStatus('Bezig met herkennen…');
+  try {
+    const im = await loadImage(file);
+    let found = await detectIn(toCanvas(im, 1600));
+    if (!found) found = await detectIn(toCanvas(im, 800)); // sometimes smaller works better for blurry photos
+    draft.image = toCanvas(im, 1000).toDataURL('image/jpeg', .85);
+    if (found) {
+      if (found.box) { // keep a crop of the code as fallback image
+        const pad = 0.15, b = found.box, W = im.naturalWidth, H = im.naturalHeight;
+        // box is relative to the 1600px canvas: scale back
+        const s = Math.max(W, H) > 1600 ? Math.max(W, H) / 1600 : 1;
+        const x = Math.max(0, (b.x - b.width * pad) * s), y = Math.max(0, (b.y - b.height * pad) * s);
+        const w = Math.min(W - x, b.width * (1 + 2 * pad) * s), h = Math.min(H - y, b.height * (1 + 2 * pad) * s);
+        if (w > 20 && h > 20) draft.image = toCanvas(im, 900, { x, y, width: w, height: h }).toDataURL('image/jpeg', .9);
+      }
+      applyFound(found);
+    } else {
+      $('eFormat').value = 'image';
+      setStatus('Geen code herkend. De foto wordt bewaard — of typ het nummer zelf in.', 'bad');
+      updatePreview();
+    }
+    URL.revokeObjectURL(im.src);
+  } catch (e) {
+    setStatus('Kon de afbeelding niet openen.', 'bad');
+  }
+}
+function applyFound(found) {
+  $('eCode').value = found.code;
+  const supported = ['ean_13', 'ean_8', 'upc_a', 'code_128', 'qr_code'];
+  $('eFormat').value = supported.includes(found.format) ? found.format : (draft.image ? 'image' : 'code_128');
+  draft.detectedFormat = found.format;
+  setStatus(`✓ Herkend: ${found.format.replace('_', '-').toUpperCase()} — ${found.code}`, 'ok');
+  updatePreview();
+  if (!$('eName').value) $('eName').focus();
+}
+
+/* ---------- Live scanner ---------- */
+let stream = null, scanning = false;
+async function startScan() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+  } catch { toast('Geen toegang tot de camera'); return; }
+  const v = $('video'); v.srcObject = stream; await v.play();
+  $('scanner').classList.add('open'); scanning = true;
+  $('scanMsg').textContent = 'Richt op de barcode…';
+  const loop = async () => {
+    if (!scanning) return;
+    if (v.videoWidth) {
+      const found = await detectIn(toCanvas(v, 1280));
+      if (found && scanning) {
+        draft.image = toCanvas(v, 1000).toDataURL('image/jpeg', .85);
+        stopScan(); applyFound(found); navigator.vibrate?.(60); return;
+      }
+    }
+    setTimeout(loop, 250);
+  };
+  loop();
+}
+function stopScan() {
+  scanning = false;
+  stream?.getTracks().forEach(t => t.stop()); stream = null;
+  $('scanner').classList.remove('open');
+}
+
+/* ---------- Save / delete ---------- */
+async function save() {
+  const name = $('eName').value.trim();
+  const code = $('eCode').value.trim();
+  const format = $('eFormat').value;
+  if (!name) { setStatus('Geef een winkelnaam in.', 'bad'); $('eName').focus(); return; }
+  if (!code && format !== 'image') { setStatus('Geen code: kies een foto of typ het nummer in.', 'bad'); return; }
+  if (format === 'image' && !draft.image) { setStatus('Kies eerst een foto.', 'bad'); return; }
+  const c = {
+    ...draft, name, code, format,
+    id: draft.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()),
+    expiry: draft.type === 'voucher' ? $('eExpiry').value : '',
+    note: $('eNote').value.trim(),
+    created: draft.created || Date.now(),
+  };
+  if (!c.color) c.color = colorFor(name);
+  await DB.put(c);
+  const wasViewing = viewing && viewing.id === c.id;
+  closeEdit();
+  await load();
+  toast(editing ? 'Opgeslagen' : 'Kaart toegevoegd');
+  if (wasViewing) { closeCard(); setTimeout(() => openCard(c.id), 50); }
+}
+let pendingDelete = null;
+function confirmDelete(c, used) {
+  pendingDelete = c;
+  $('cText').textContent = used ? `Bon “${c.name}” gebruikt en verwijderen?` : `“${c.name}” verwijderen?`;
+  $('confirmSheet').classList.add('open');
+}
+
+/* ---------- Backup ---------- */
+function exportBackup() {
+  const data = JSON.stringify({ app: 'kaartjes', version: 1, exported: new Date().toISOString(), cards }, null, 1);
+  const blob = new Blob([data], { type: 'application/json' });
+  const name = `kaartjes-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([blob], name, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) {
+    navigator.share({ files: [file], title: 'Kaartjes back-up' }).catch(() => {});
+  } else {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+}
+async function importBackup(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    const list = Array.isArray(data) ? data : data.cards;
+    if (!Array.isArray(list)) throw 0;
+    let n = 0;
+    for (const c of list) { if (c && c.id && c.name) { await DB.put(c); n++; } }
+    await load(); toast(`${n} kaarten geïmporteerd`);
+  } catch { toast('Ongeldig back-upbestand'); }
+}
+
+/* ---------- Wiring ---------- */
+$('search').addEventListener('input', render);
+$('search').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const first = $('grid').querySelector('.tile'); if (first) { $('search').blur(); openCard(first.dataset.id); } }
+});
+$('grid').addEventListener('click', e => { const t = e.target.closest('.tile'); if (t) openCard(t.dataset.id); });
+$('fab').onclick = () => openEdit(null);
+$('vClose').onclick = () => closeCard();
+$('vEdit').onclick = () => openEdit(viewing);
+$('ePhoto').onclick = () => $('fileIn').click();
+$('fileIn').onchange = e => { const f = e.target.files[0]; if (f) handleImage(f); e.target.value = ''; };
+$('eLive').onclick = startScan;
+$('scanClose').onclick = stopScan;
+$('eType').onclick = e => { const b = e.target.closest('button'); if (b) setType(b.dataset.v); };
+$('eColors').onclick = e => { const b = e.target.closest('button'); if (b) { draft.color = b.dataset.c; renderColors(); } };
+$('eName').addEventListener('input', () => { if (!draft.color) renderColors(); });
+$('eCode').addEventListener('input', updatePreview);
+$('eFormat').addEventListener('change', updatePreview);
+$('eCancel').onclick = () => closeEdit();
+$('eSave').onclick = save;
+$('eDelete').onclick = () => confirmDelete(editing, false);
+$('cNo').onclick = () => { $('confirmSheet').classList.remove('open'); pendingDelete = null; };
+$('cYes').onclick = async () => {
+  const c = pendingDelete; $('confirmSheet').classList.remove('open'); pendingDelete = null;
+  if (!c) return;
+  await DB.del(c.id);
+  // close whatever is open
+  if ($('editSheet').classList.contains('open')) closeEdit();
+  if ($('view').classList.contains('open')) setTimeout(() => closeCard(), 50);
+  await load(); toast('Verwijderd');
+};
+$('menuBtn').onclick = () => $('menuSheet').classList.add('open');
+$('mClose').onclick = () => $('menuSheet').classList.remove('open');
+$('mExport').onclick = () => { $('menuSheet').classList.remove('open'); exportBackup(); };
+$('mImport').onclick = () => $('importIn').click();
+$('importIn').onchange = e => { const f = e.target.files[0]; if (f) importBackup(f); e.target.value = ''; $('menuSheet').classList.remove('open'); };
+for (const s of document.querySelectorAll('.sheet')) s.addEventListener('click', e => {
+  if (e.target === s) { if (s.id === 'editSheet') closeEdit(); else s.classList.remove('open'); }
+});
+// Android back button closes overlays instead of leaving the app
+window.addEventListener('popstate', () => {
+  if (ignorePop) { ignorePop--; return; }
+  if (scanning) { stopScan(); history.pushState({ v: 'edit' }, ''); return; }
+  if ($('editSheet').classList.contains('open')) { closeEdit(true); return; }
+  if ($('view').classList.contains('open')) { closeCard(true); return; }
+});
+
+// Paste a screenshot directly (desktop / some keyboards)
+window.addEventListener('paste', e => {
+  const f = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
+  if (f) { if (!$('editSheet').classList.contains('open')) openEdit(null); handleImage(f); }
+});
+
+// Share target: images shared to the app (Android "Delen" menu)
+async function checkShared() {
+  if (!location.search.includes('shared=1') || !('caches' in window)) return;
+  const cache = await caches.open('kaartjes-share');
+  const res = await cache.match('shared-image');
+  history.replaceState(null, '', location.pathname);
+  if (res) { await cache.delete('shared-image'); const blob = await res.blob(); openEdit(null); handleImage(blob); }
+}
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+navigator.storage?.persist?.();
+load().then(checkShared);
+</script>
+</body>
+</html>
